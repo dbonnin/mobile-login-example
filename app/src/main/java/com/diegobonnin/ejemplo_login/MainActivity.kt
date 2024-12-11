@@ -4,23 +4,24 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
-import com.diegobonnin.ejemplo_login.ui.LoginApp
+import com.diegobonnin.ejemplo_login.data.AppContainer
+import com.diegobonnin.ejemplo_login.ui.screens.AppNavigation
 import com.diegobonnin.ejemplo_login.ui.theme.EjemplologinTheme
 
 class MainActivity : ComponentActivity() {
+
+    private lateinit var appContainer: AppContainer
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        appContainer = (application as LoginApplication).container
         enableEdgeToEdge()
         setContent {
             EjemplologinTheme {
-                LoginApp()
+                AppNavigation(
+                    loginViewModel = appContainer.loginViewModel,
+                    carsViewModel = appContainer.carsViewModel
+                )
             }
         }
     }

@@ -1,80 +1,63 @@
 package com.diegobonnin.ejemplo_login.ui.screens
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.initializer
-import androidx.lifecycle.viewmodel.viewModelFactory
-import com.diegobonnin.ejemplo_login.LoginApplication
-import com.diegobonnin.ejemplo_login.data.ApiResult
-import com.diegobonnin.ejemplo_login.data.LoginRepository
-import com.diegobonnin.ejemplo_login.model.LoginInfo
+import com.diegobonnin.ejemplo_login.data.AuthRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.asStateFlow
+import android.util.Log
 
-data class LoginUiState(
-    val username: String = "",
-    val password: String = "",
-    val isLoading: Boolean = false,
-    val error: String? = null,
-    val isLoggedIn: Boolean = false
-)
+// States
+sealed class LoginState {
+    object Initial : LoginState()
+    object Loading : LoginState()
+    object Success : LoginState()
+    data class Error(val message: String) : LoginState()
+}
 
-class LoginViewModel(private val loginRepository: LoginRepository) : ViewModel() {
+class LoginViewModel(private val authRepository: AuthRepository) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(LoginUiState())
-    val uiState: StateFlow<LoginUiState> = _uiState
+    private val _loginState = MutableStateFlow<LoginState>(LoginState.Initial)
+    val loginState: StateFlow<LoginState> = _loginState.asStateFlow()
 
-    fun updateUsername(username: String) {
-        _uiState.value = _uiState.value.copy(username = username)
-    }
+    private val _isLoggedIn = MutableStateFlow(false)
+    val isLoggedIn: StateFlow<Boolean> = _isLoggedIn.asStateFlow()
 
-    fun updatePassword(password: String) {
-        _uiState.value = _uiState.value.copy(password = password)
-    }
+    private val _username = MutableStateFlow<String?>(null)
+    val username: StateFlow<String?> = _username.asStateFlow()
 
-    fun login() {
+    fun login(username: String, password: String) {
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            _loginState.value = LoginState.Loading
             try {
-                val loginInfo = LoginInfo(
-                    username = _uiState.value.username,
-                    password = _uiState.value.password
+                val result = authRepository.login(username, password)
+                result.fold(
+                    onSuccess = {
+                        _loginState.value = LoginState.Success
+                        _isLoggedIn.value = true
+                        _username.value = username
+                    },
+                    onFailure = {
+                        _loginState.value = LoginState.Error(it.message ?: "Unknown error")
+                    }
                 )
-                when (val result = loginRepository.login(loginInfo)) {
-                    is ApiResult.Success -> {
-                        _uiState.value = _uiState.value.copy(
-                            isLoggedIn = true,
-                            error = null
-                        )
-                    }
-                    is ApiResult.Error -> {
-                        _uiState.value = _uiState.value.copy(
-                            error = result.message
-                        )
-                    }
-                    null -> TODO()
-                }
             } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    error = "Login failed: ${e.message}"
-                )
-            } finally {
-                _uiState.value = _uiState.value.copy(isLoading = false)
+                _loginState.value = LoginState.Error(e.message ?: "Unknown error")
             }
         }
     }
 
-    companion object {
-        val Factory: ViewModelProvider.Factory = viewModelFactory {
-            initializer {
-                val application =
-                    (this[ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY] as LoginApplication)
-                val loginRepository = application.container.loginRepository
-                LoginViewModel(loginRepository = loginRepository)
+    fun logout() {
+        viewModelScope.launch {
+            try {
+                authRepository.logout()
+                _isLoggedIn.value = false
+                _username.value = null
+            } catch (e: Exception) {
+                Log.e("LoginViewModel", "Logout failed", e)
             }
         }
     }
-
 }

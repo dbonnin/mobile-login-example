@@ -13,10 +13,14 @@ fun LoginScreen(
     viewModel: LoginViewModel,
     onLoginSuccess: () -> Unit
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    var username by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
 
-    LaunchedEffect(uiState.isLoggedIn) {
-        if (uiState.isLoggedIn) {
+    val loginState by viewModel.loginState.collectAsState()
+    val isLoggedIn by viewModel.isLoggedIn.collectAsState()
+
+    LaunchedEffect(isLoggedIn) {
+        if (isLoggedIn) {
             onLoginSuccess()
         }
     }
@@ -28,18 +32,18 @@ fun LoginScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        TextField(
-            value = uiState.username,
-            onValueChange = { viewModel.updateUsername(it) },
+        OutlinedTextField(
+            value = username,
+            onValueChange = { username = it },
             label = { Text("Username") },
             modifier = Modifier.fillMaxWidth()
         )
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        TextField(
-            value = uiState.password,
-            onValueChange = { viewModel.updatePassword(it) },
+        OutlinedTextField(
+            value = password,
+            onValueChange = { password = it },
             label = { Text("Password") },
             visualTransformation = PasswordVisualTransformation(),
             modifier = Modifier.fillMaxWidth()
@@ -48,11 +52,11 @@ fun LoginScreen(
         Spacer(modifier = Modifier.height(16.dp))
 
         Button(
-            onClick = { viewModel.login() },
-            enabled = !uiState.isLoading,
+            onClick = { viewModel.login(username, password) },
+            enabled = username.isNotEmpty() && password.isNotEmpty() && loginState != LoginState.Loading,
             modifier = Modifier.fillMaxWidth()
         ) {
-            if (uiState.isLoading) {
+            if (loginState == LoginState.Loading) {
                 CircularProgressIndicator(
                     modifier = Modifier.size(24.dp),
                     color = MaterialTheme.colorScheme.onPrimary
@@ -62,11 +66,11 @@ fun LoginScreen(
             }
         }
 
-        uiState.error?.let { error ->
+        if (loginState is LoginState.Error) {
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = error,
-                color = MaterialTheme.colorScheme.error
+                text = (loginState as LoginState.Error).message,
+                color = MaterialTheme.colorScheme.onPrimary
             )
         }
     }
